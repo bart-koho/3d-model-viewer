@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Viewer</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            background-color: #f0f0f0;
+        }
+        canvas { 
+            max-width: 100%; 
+            max-height: 100%; 
+        }
+        #upload-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        #upload-button {
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        #upload-button:hover {
+            background-color: #45a049;
+            transform: scale(1.05);
+        }
+        #upload-button svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+        #file-input {
+            display: none;
+        }
+        #lighting-button {
+            background-color: #2196F3;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+        #lighting-button:hover {
+            background-color: #1976D2;
+            transform: scale(1.05);
+        }
+        #lighting-button svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+        #lighting-panel {
+            position: fixed;
+            top: 20px;
+            right: 80px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: none;
+            width: 250px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+        .lighting-control {
+            margin-bottom: 15px;
+        }
+        .lighting-control label {
+            display: block;
+            margin-bottom: 5px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            color: #333;
+        }
+        .lighting-control input[type="range"] {
+            width: 100%;
+        }
+        .lighting-control input[type="color"] {
+            width: 50px;
+            height: 25px;
+            padding: 0;
+            border: none;
+        }
+        .control-group {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+        }
+        .control-group:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 0;
+        }
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .toggle-switch label {
+            margin-left: 10px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            color: #333;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 20px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+    </style>
+</head>
+<body>
+    <div id="upload-container">
+        <input type="file" id="file-input" accept=".glb,.gltf">
+        <button id="upload-button" title="Upload 3D Model">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/>
+            </svg>
+        </button>
+        <button id="lighting-button" title="Lighting Controls">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M12 2C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6C7.8 12.16 7 10.63 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1z"/>
+            </svg>
+        </button>
+    </div>
+
+    <div id="lighting-panel">
+        <div class="toggle-switch">
+            <label class="switch">
+                <input type="checkbox" id="show-helpers">
+                <span class="slider"></span>
+            </label>
+            <label>Show Light Helpers</label>
+        </div>
+        <div class="toggle-switch">
+            <label class="switch">
+                <input type="checkbox" id="debug-materials">
+                <span class="slider"></span>
+            </label>
+            <label>Debug Materials</label>
+        </div>
+        <div class="control-group">
+            <div class="lighting-control">
+                <label>Material Metalness</label>
+                <input type="range" id="material-metalness" min="0" max="1" step="0.1" value="0.5">
+            </div>
+            <div class="lighting-control">
+                <label>Material Roughness</label>
+                <input type="range" id="material-roughness" min="0" max="1" step="0.1" value="0.5">
+            </div>
+        </div>
+        <div class="control-group">
+            <div class="lighting-control">
+                <label>Ambient Light Intensity</label>
+                <input type="range" id="ambient-intensity" min="0" max="10" step="0.1" value="5.0">
+            </div>
+        </div>
+        <div class="control-group">
+            <div class="lighting-control">
+                <label>Point Light 1 Intensity</label>
+                <input type="range" id="point1-intensity" min="0" max="10" step="0.1" value="8.0">
+            </div>
+            <div class="lighting-control">
+                <label>Position X</label>
+                <input type="range" id="point1-x" min="-3" max="3" step="0.1" value="1">
+            </div>
+            <div class="lighting-control">
+                <label>Position Y</label>
+                <input type="range" id="point1-y" min="-3" max="3" step="0.1" value="1">
+            </div>
+            <div class="lighting-control">
+                <label>Position Z</label>
+                <input type="range" id="point1-z" min="-3" max="3" step="0.1" value="1">
+            </div>
+        </div>
+        <div class="control-group">
+            <div class="lighting-control">
+                <label>Point Light 2 Intensity</label>
+                <input type="range" id="point2-intensity" min="0" max="10" step="0.1" value="8.0">
+            </div>
+            <div class="lighting-control">
+                <label>Position X</label>
+                <input type="range" id="point2-x" min="-3" max="3" step="0.1" value="-1">
+            </div>
+            <div class="lighting-control">
+                <label>Position Y</label>
+                <input type="range" id="point2-y" min="-3" max="3" step="0.1" value="-1">
+            </div>
+            <div class="lighting-control">
+                <label>Position Z</label>
+                <input type="range" id="point2-z" min="-3" max="3" step="0.1" value="-1">
+            </div>
+        </div>
+        <div class="control-group">
+            <div class="lighting-control">
+                <label>Directional Light Intensity</label>
+                <input type="range" id="directional-intensity" min="0" max="10" step="0.1" value="3.0">
+            </div>
+            <div class="lighting-control">
+                <label>Position Y</label>
+                <input type="range" id="directional-y" min="-10" max="10" step="0.5" value="1">
+            </div>
+        </div>
+        <div class="control-group">
+            <div class="lighting-control">
+                <label>Hemisphere Light Intensity</label>
+                <input type="range" id="hemisphere-intensity" min="0" max="10" step="0.1" value="3.0">
+            </div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <script>
+        // Set up the scene, camera, and renderer
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf0f0f0);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 5;
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        // Enable physically correct lighting
+        renderer.physicallyCorrectLights = true;
+        // Enable tone mapping for better light intensity handling
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        // Enable shadow mapping
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+        
+        // Add orbit controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.25;
+        controls.screenSpacePanning = false;
+        controls.maxPolarAngle = Math.PI / 2;
+        
+        // Add lighting with increased intensity
+        const ambientLight = new THREE.AmbientLight(0xffffff, 5.0);
+        scene.add(ambientLight);
+        
+        const pointLight1 = new THREE.PointLight(0xffffff, 8.0, 10, 2);
+        pointLight1.position.set(1, 1, 1);
+        pointLight1.castShadow = true;
+        scene.add(pointLight1);
+
+        const pointLight2 = new THREE.PointLight(0xffffff, 8.0, 10, 2);
+        pointLight2.position.set(-1, -1, -1);
+        pointLight2.castShadow = true;
+        scene.add(pointLight2);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 3.0);
+        directionalLight.position.set(0, 1, 0);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+
+        // Add hemisphere light for better ambient lighting
+        const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 3.0);
+        scene.add(hemisphereLight);
+
+        // Add light helpers
+        const pointLightHelper1 = new THREE.PointLightHelper(pointLight1, 0.5);
+        const pointLightHelper2 = new THREE.PointLightHelper(pointLight2, 0.5);
+        const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 1);
+        
+        // Function to toggle light helpers
+        function toggleLightHelpers(show) {
+            if (show) {
+                scene.add(pointLightHelper1);
+                scene.add(pointLightHelper2);
+                scene.add(directionalLightHelper);
+            } else {
+                scene.remove(pointLightHelper1);
+                scene.remove(pointLightHelper2);
+                scene.remove(directionalLightHelper);
+            }
+        }
+
+        // Function to update light helpers
+        function updateLightHelpers() {
+            pointLightHelper1.update();
+            pointLightHelper2.update();
+            directionalLightHelper.update();
+        }
+        
+        // Lighting controls
+        const lightingButton = document.getElementById('lighting-button');
+        const lightingPanel = document.getElementById('lighting-panel');
+        let isPanelVisible = false;
+
+        lightingButton.addEventListener('click', () => {
+            isPanelVisible = !isPanelVisible;
+            lightingPanel.style.display = isPanelVisible ? 'block' : 'none';
+        });
+
+        // Helper visibility toggle
+        document.getElementById('show-helpers').addEventListener('change', (e) => {
+            toggleLightHelpers(e.target.checked);
+        });
+
+        // Ambient light controls
+        document.getElementById('ambient-intensity').addEventListener('input', (e) => {
+            ambientLight.intensity = parseFloat(e.target.value);
+        });
+
+        // Point light 1 controls
+        document.getElementById('point1-intensity').addEventListener('input', (e) => {
+            pointLight1.intensity = parseFloat(e.target.value);
+        });
+        document.getElementById('point1-x').addEventListener('input', (e) => {
+            pointLight1.position.x = parseFloat(e.target.value);
+            updateLightHelpers();
+        });
+        document.getElementById('point1-y').addEventListener('input', (e) => {
+            pointLight1.position.y = parseFloat(e.target.value);
+            updateLightHelpers();
+        });
+        document.getElementById('point1-z').addEventListener('input', (e) => {
+            pointLight1.position.z = parseFloat(e.target.value);
+            updateLightHelpers();
+        });
+
+        // Point light 2 controls
+        document.getElementById('point2-intensity').addEventListener('input', (e) => {
+            pointLight2.intensity = parseFloat(e.target.value);
+        });
+        document.getElementById('point2-x').addEventListener('input', (e) => {
+            pointLight2.position.x = parseFloat(e.target.value);
+            updateLightHelpers();
+        });
+        document.getElementById('point2-y').addEventListener('input', (e) => {
+            pointLight2.position.y = parseFloat(e.target.value);
+            updateLightHelpers();
+        });
+        document.getElementById('point2-z').addEventListener('input', (e) => {
+            pointLight2.position.z = parseFloat(e.target.value);
+            updateLightHelpers();
+        });
+
+        // Directional light controls
+        document.getElementById('directional-intensity').addEventListener('input', (e) => {
+            directionalLight.intensity = parseFloat(e.target.value);
+        });
+        document.getElementById('directional-y').addEventListener('input', (e) => {
+            directionalLight.position.y = parseFloat(e.target.value);
+            directionalLight.lookAt(0, 0, 0);
+            updateLightHelpers();
+        });
+
+        // Hemisphere light controls
+        document.getElementById('hemisphere-intensity').addEventListener('input', (e) => {
+            hemisphereLight.intensity = parseFloat(e.target.value);
+        });
+        
+        let currentModel = null;
+        let originalMaterials = new Map();
+
+        // Function to store original materials
+        function storeMaterials(object) {
+            object.traverse((node) => {
+                if (node.isMesh) {
+                    originalMaterials.set(node, node.material.clone());
+                }
+            });
+        }
+
+        // Function to restore original materials
+        function restoreMaterials(object) {
+            object.traverse((node) => {
+                if (node.isMesh && originalMaterials.has(node)) {
+                    node.material = originalMaterials.get(node).clone();
+                    node.material.needsUpdate = true;
+                }
+            });
+        }
+
+        // Function to traverse and modify materials
+        function updateMaterials(debugMode, metalness, roughness) {
+            if (!currentModel) return;
+            
+            if (debugMode) {
+                currentModel.traverse((node) => {
+                    if (node.isMesh) {
+                        // Create a simple MeshStandardMaterial for debugging
+                        node.material = new THREE.MeshStandardMaterial({
+                            color: 0x808080,
+                            metalness: metalness,
+                            roughness: roughness,
+                            wireframe: false
+                        });
+                        // Enable shadow casting and receiving
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+                        node.material.needsUpdate = true;
+                    }
+                });
+            } else {
+                restoreMaterials(currentModel);
+                // Ensure shadows are enabled on restored materials
+                currentModel.traverse((node) => {
+                    if (node.isMesh) {
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+                        if (node.material) {
+                            node.material.needsUpdate = true;
+                        }
+                    }
+                });
+            }
+        }
+
+        // Material controls
+        document.getElementById('debug-materials').addEventListener('change', (e) => {
+            updateMaterials(
+                e.target.checked,
+                parseFloat(document.getElementById('material-metalness').value),
+                parseFloat(document.getElementById('material-roughness').value)
+            );
+        });
+
+        document.getElementById('material-metalness').addEventListener('input', (e) => {
+            if (document.getElementById('debug-materials').checked) {
+                updateMaterials(
+                    true,
+                    parseFloat(e.target.value),
+                    parseFloat(document.getElementById('material-roughness').value)
+                );
+            }
+        });
+
+        document.getElementById('material-roughness').addEventListener('input', (e) => {
+            if (document.getElementById('debug-materials').checked) {
+                updateMaterials(
+                    true,
+                    parseFloat(document.getElementById('material-metalness').value),
+                    parseFloat(e.target.value)
+                );
+            }
+        });
+
+        // Function to load 3D model
+        function loadModel(url) {
+            const loader = new THREE.GLTFLoader();
+            
+            // Remove current model if it exists
+            if (currentModel) {
+                scene.remove(currentModel);
+                originalMaterials.clear();
+            }
+
+            loader.load(
+                url,
+                function (gltf) {
+                    currentModel = gltf.scene;
+                    
+                    // Store original materials before any modifications
+                    storeMaterials(currentModel);
+                    
+                    // Center the model
+                    const box = new THREE.Box3().setFromObject(currentModel);
+                    const center = box.getCenter(new THREE.Vector3());
+                    currentModel.position.sub(center);
+                    
+                    // Auto-adjust camera position based on model size
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    camera.position.z = maxDim * 2;
+                    
+                    scene.add(currentModel);
+
+                    // If debug materials is enabled, apply it
+                    if (document.getElementById('debug-materials').checked) {
+                        updateMaterials(
+                            true,
+                            parseFloat(document.getElementById('material-metalness').value),
+                            parseFloat(document.getElementById('material-roughness').value)
+                        );
+                    }
+
+                    // Log material information for debugging
+                    console.log('Model loaded, traversing materials:');
+                    currentModel.traverse((node) => {
+                        if (node.isMesh) {
+                            console.log('Mesh:', node.name);
+                            console.log('Material:', node.material);
+                        }
+                    });
+                },
+                function (xhr) {
+                    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                },
+                function (error) {
+                    console.error('An error occurred while loading the model', error);
+                }
+            );
+        }
+
+        // Load initial model
+        loadModel('https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF/Duck.gltf');
+
+        // Handle file upload
+        document.getElementById('upload-button').addEventListener('click', () => {
+            document.getElementById('file-input').click();
+        });
+
+        document.getElementById('file-input').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                loadModel(url);
+            }
+        });
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+        
+        // Handle window resizing
+        window.addEventListener('resize', onWindowResize, false);
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
